@@ -2,8 +2,10 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
+use std::collections::hash_map::DefaultHasher;
 use std::f64::consts::LN_2;
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
@@ -178,7 +180,8 @@ pub fn scan_fasta_batches<F>(path: &Path, batch_bases: usize, mut on_batch: F) -
 where
     F: FnMut(Vec<Vec<u8>>) -> Result<()>,
 {
-    let file = File::open(path).with_context(|| format!("failed to open FASTA file {}", path.display()))?;
+    let file = File::open(path)
+        .with_context(|| format!("failed to open FASTA file {}", path.display()))?;
     let mut reader = BufReader::new(file);
     let mut line = Vec::with_capacity(16 * 1024);
     let mut batch = Vec::new();
@@ -268,6 +271,12 @@ pub fn optimal_num_hashes(num_bits: usize, expected_items: usize) -> u32 {
     let expected_items = expected_items.max(1) as f64;
     let hashes = ((num_bits as f64 / expected_items) * LN_2).ceil() as u32;
     hashes.max(1)
+}
+
+pub fn hash_bytes_default(bytes: &[u8]) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    bytes.hash(&mut hasher);
+    hasher.finish()
 }
 
 pub fn usage_snapshot() -> Result<UsageSnapshot> {

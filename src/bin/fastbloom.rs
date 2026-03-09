@@ -32,7 +32,8 @@ fn main() -> Result<()> {
 
 fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
     let threads = rayon::current_num_threads();
-    let needs_precount = args.hashes.is_none() || (args.bloom_bits.is_none() && args.bloom_bytes.is_none());
+    let needs_precount =
+        args.hashes.is_none() || (args.bloom_bits.is_none() && args.bloom_bytes.is_none());
 
     let index_usage_start = usage_snapshot()?;
     let index_wall_start = Instant::now();
@@ -55,7 +56,8 @@ fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
     let bloom = AtomicBloomFilter::with_num_bits(bloom_bits).hashes(bloom_hashes);
 
     let indexed_kmers = if needs_precount {
-        let inserted_kmers = index_fasta(&args.index_fasta, args.kmer_size, args.batch_bases, &bloom)?;
+        let inserted_kmers =
+            index_fasta(&args.index_fasta, args.kmer_size, args.batch_bases, &bloom)?;
         debug_assert_eq!(inserted_kmers, indexed_kmers);
         indexed_kmers
     } else {
@@ -87,14 +89,21 @@ fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
     })
 }
 
-fn index_fasta(path: &std::path::Path, k: usize, batch_bases: usize, filter: &AtomicBloomFilter) -> Result<u64> {
+fn index_fasta(
+    path: &std::path::Path,
+    k: usize,
+    batch_bases: usize,
+    filter: &AtomicBloomFilter,
+) -> Result<u64> {
     let mut total = 0_u64;
     scan_fasta_batches(path, batch_bases, |batch| {
         let batch_total: u64 = batch
             .par_iter()
-            .map(|seq| visit_sequence_kmers(seq, k, |kmer| {
-                filter.insert(kmer);
-            }))
+            .map(|seq| {
+                visit_sequence_kmers(seq, k, |kmer| {
+                    filter.insert(kmer);
+                })
+            })
             .sum();
         total += batch_total;
         Ok(())

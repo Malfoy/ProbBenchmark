@@ -2,11 +2,15 @@
 
 Rust command-line benchmarks for k-mer indexing and querying on FASTA files using multiple Bloom filter implementations.
 
-The project currently provides three binaries:
+The project currently provides seven binaries:
 
 - `fastbloom`: benchmark based on [`fastbloom`](https://crates.io/crates/fastbloom)
 - `classic_bloom`: benchmark based on [`bloom-filters`](https://crates.io/crates/bloom-filters)
 - `roaring_bloom`: benchmark based on [`roaring-bloom-filter`](https://crates.io/crates/roaring-bloom-filter)
+- `bloom_filter_rs`: benchmark based on [`bloom-filter-rs`](https://crates.io/crates/bloom-filter-rs)
+- `bloomfx`: benchmark based on [`bloomfx`](https://crates.io/crates/bloomfx)
+- `bloom_rs`: benchmark based on [`bloom_rs`](https://crates.io/crates/bloom_rs)
+- `generic_bloom`: benchmark based on [`generic-bloom`](https://crates.io/crates/generic-bloom)
 
 Each binary:
 
@@ -42,6 +46,10 @@ Build a specific binary:
 cargo build -r --bin fastbloom
 cargo build -r --bin classic_bloom
 cargo build -r --bin roaring_bloom
+cargo build -r --bin bloom_filter_rs
+cargo build -r --bin bloomfx
+cargo build -r --bin bloom_rs
+cargo build -r --bin generic_bloom
 ```
 
 Run tests:
@@ -58,6 +66,10 @@ After `cargo build -r`, the binaries are available in:
 target/release/fastbloom
 target/release/classic_bloom
 target/release/roaring_bloom
+target/release/bloom_filter_rs
+target/release/bloomfx
+target/release/bloom_rs
+target/release/generic_bloom
 ```
 
 ## Usage
@@ -116,6 +128,50 @@ Example with the roaring implementation:
   --hashes 6
 ```
 
+Example with `bloom-filter-rs`:
+
+```bash
+./target/release/bloom_filter_rs \
+  --index-fasta ref.fa \
+  --query-fasta query.fa \
+  --kmer-size 31 \
+  --bloom-bits 1000000000 \
+  --hashes 7
+```
+
+Example with `bloomfx`:
+
+```bash
+./target/release/bloomfx \
+  --index-fasta ref.fa \
+  --query-fasta query.fa \
+  --kmer-size 31 \
+  --bloom-bits 1000000000 \
+  --hashes 7
+```
+
+Example with `bloom_rs`:
+
+```bash
+./target/release/bloom_rs \
+  --index-fasta ref.fa \
+  --query-fasta query.fa \
+  --kmer-size 31 \
+  --bloom-bits 1000000000 \
+  --hashes 7
+```
+
+Example with `generic-bloom`:
+
+```bash
+./target/release/generic_bloom \
+  --index-fasta ref.fa \
+  --query-fasta query.fa \
+  --kmer-size 31 \
+  --bloom-bits 1000000000 \
+  --hashes 7
+```
+
 ## Reported Metrics
 
 Each run prints tab-separated key/value pairs:
@@ -161,6 +217,30 @@ Notes:
 - Indexing also uses one shared Bloom filter protected by a mutex
 - This crate requires sized values for insertion and lookup, so k-mers are hashed to `u64` keys before insertion and query
 
+### `bloom_filter_rs`
+
+- Uses `bloom-filter-rs::BloomFilter`
+- Supports direct manual configuration of bit-array size and hash count
+- Operates directly on k-mer byte slices
+
+### `bloomfx`
+
+- Uses `bloomfx::BloomFilter`
+- Supports direct manual configuration of bit count and hash count
+- This benchmark hashes k-mers to `u64` keys before insertion and query
+
+### `bloom_rs`
+
+- Uses `bloom_rs::BloomFilter`
+- Supports direct manual configuration of bit count and hash count
+- This benchmark hashes k-mers to `u64` keys before insertion and query
+
+### `generic_bloom`
+
+- Uses `generic_bloom::SimpleBloomFilter`
+- Supports direct manual configuration of counter count and hash count
+- Uses a plain bitset-backed binary Bloom filter configuration
+
 ## Crate Origins
 
 ### Bloom filter crates
@@ -181,6 +261,27 @@ Notes:
   - Documentation: <https://docs.rs/roaring-bloom-filter/0.2.0>
   - Repository: <https://github.com/oliverdding/roaring-bloom-filter-rs>
   - License note: this crate is published under `AGPL-3.0`
+
+- `bloom-filter-rs`
+  - Crate: <https://crates.io/crates/bloom-filter-rs>
+  - Documentation: <https://docs.rs/bloom-filter-rs/0.1.0>
+  - Repository: <https://github.com/sagalasan/bloom-filter>
+
+- `bloomfx`
+  - Crate: <https://crates.io/crates/bloomfx>
+  - Documentation: <https://docs.rs/bloomfx/0.1.1>
+  - Repository: <https://github.com/jdockerty/bloomfx>
+
+- `bloom_rs`
+  - Crate: <https://crates.io/crates/bloom_rs>
+  - Documentation: <https://docs.rs/bloom_rs/0.1.0/bloom_rs>
+  - Repository: <https://github.com/DavidCai1993/bloom.rs>
+
+- `generic-bloom`
+  - Crate: <https://crates.io/crates/generic-bloom>
+  - Documentation: <https://docs.rs/generic-bloom/0.1.0>
+  - Repository: <https://github.com/goose121/generic-bloom-rs>
+  - License note: this crate is published under `AGPL-3.0-or-later`
 
 ### Supporting crates used by this project
 
@@ -211,5 +312,9 @@ src/lib.rs                  Shared FASTA parsing, k-mer traversal, metrics, repo
 src/bin/fastbloom.rs        fastbloom benchmark binary
 src/bin/classic_bloom.rs    bloom-filters benchmark binary
 src/bin/roaring_bloom.rs    roaring-bloom-filter benchmark binary
+src/bin/bloom_filter_rs.rs  bloom-filter-rs benchmark binary
+src/bin/bloomfx.rs          bloomfx benchmark binary
+src/bin/bloom_rs.rs         bloom_rs benchmark binary
+src/bin/generic_bloom.rs    generic-bloom benchmark binary
 .cargo/config.toml          default target-cpu=native configuration
 ```

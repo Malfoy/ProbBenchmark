@@ -1,14 +1,12 @@
 use anyhow::{Context, Result};
+use bloom_rs::BloomFilter as BloomRs;
 use clap::Parser;
 use probbenchmark::{
     BenchmarkReport, CommonArgs, QueryStats, configure_threads, count_fasta_kmers,
-    cpu_delta_seconds, optimal_num_hashes, print_report, resolve_bloom_bits, scan_fasta_batches,
-    usage_snapshot, validate_common_args, visit_sequence_kmers,
+    cpu_delta_seconds, hash_bytes_default, optimal_num_hashes, print_report, resolve_bloom_bits,
+    scan_fasta_batches, usage_snapshot, validate_common_args, visit_sequence_kmers,
 };
 use rayon::prelude::*;
-use roaring_bloom_filter::{BloomFilter, StableBloomFilter};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -17,7 +15,7 @@ use std::time::Instant;
 #[command(
     author,
     version,
-    about = "Indexes k-mers from one FASTA into a roaring-bloom-filter stable Bloom filter and queries k-mers from another FASTA."
+    about = "Indexes k-mers from one FASTA into a Bloom filter and queries k-mers from another FASTA with bloom_rs."
 )]
 struct Cli {
     #[command(flatten)]
@@ -57,7 +55,7 @@ fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
             optimal_num_hashes(bloom_bits, expected_items)
         }
     };
-    let mut bloom = build_filter(bloom_bits, bloom_hashes, args.false_positive_rate);
+    let mut bloom = BloomRs::new(bloom_bits, bloom_hashes as usize);
 
     let indexed_kmers = if needs_precount {
         let inserted_kmers = index_fasta(
@@ -102,38 +100,30 @@ fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
     })
 }
 
-fn build_filter(
-    bloom_bits: usize,
-    bloom_hashes: u32,
-    false_positive_rate: f64,
-) -> StableBloomFilter {
-    StableBloomFilter::from_scratch(bloom_hashes, bloom_bits as u64, false_positive_rate)
-}
-
 fn index_fasta(
     path: &Path,
     k: usize,
     batch_bases: usize,
-    global_filter: &mut StableBloomFilter,
+    global_filter: &mut BloomRs,
 ) -> Result<u64> {
     let mut total = 0_u64;
     let shared_filter = Arc::new(Mutex::new(std::mem::replace(
         global_filter,
-        build_filter(1, 1, 0.5),
+        BloomRs::new(1, 1),
     )));
 
     scan_fasta_batches(path, batch_bases, |batch| {
         let batch_total: u64 = batch
             .par_iter()
             .map(|seq| {
-                let mut local_kmers = Vec::new();
+                let mut local_keys = Vec::new();
                 let indexed_kmers = visit_sequence_kmers(seq, k, |kmer| {
-                    local_kmers.push(kmer_key(kmer));
+                    local_keys.push(hash_bytes_default(kmer));
                 });
 
-                let mut filter = shared_filter.lock().expect("roaring bloom mutex poisoned");
-                for key in &local_kmers {
-                    filter.add(key);
+                let mut filter = shared_filter.lock().expect("bloom_rs mutex poisoned");
+                for key in &local_keys {
+                    filter.add(*key);
                 }
                 indexed_kmers
             })
@@ -144,21 +134,15 @@ fn index_fasta(
     })?;
 
     *global_filter = Arc::into_inner(shared_filter)
-        .expect("roaring bloom filter still has multiple owners")
+        .expect("bloom_rs filter still has multiple owners")
         .into_inner()
-        .expect("roaring bloom mutex poisoned");
+        .expect("bloom_rs mutex poisoned");
 
     Ok(total)
 }
 
-fn query_fasta(
-    path: &Path,
-    k: usize,
-    batch_bases: usize,
-    filter: &StableBloomFilter,
-) -> Result<QueryStats> {
+fn query_fasta(path: &Path, k: usize, batch_bases: usize, filter: &BloomRs) -> Result<QueryStats> {
     let mut totals = QueryStats::default();
-
     scan_fasta_batches(path, batch_bases, |batch| {
         let batch_stats = batch
             .par_iter()
@@ -166,8 +150,7 @@ fn query_fasta(
                 let mut stats = QueryStats::default();
                 visit_sequence_kmers(seq, k, |kmer| {
                     stats.total_kmers += 1;
-                    let key = kmer_key(kmer);
-                    if filter.contains(&key) {
+                    if filter.contains(hash_bytes_default(kmer)) {
                         stats.positive_kmers += 1;
                     }
                 });
@@ -177,34 +160,26 @@ fn query_fasta(
         totals = totals.combine(batch_stats);
         Ok(())
     })?;
-
     Ok(totals)
-}
-
-fn kmer_key(kmer: &[u8]) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    kmer.hash(&mut hasher);
-    hasher.finish()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::build_filter;
-    use probbenchmark::visit_sequence_kmers;
-    use roaring_bloom_filter::BloomFilter;
+    use bloom_rs::BloomFilter as BloomRs;
+    use probbenchmark::{hash_bytes_default, visit_sequence_kmers};
 
     #[test]
-    fn roaring_filter_reports_inserted_hits() {
-        let mut filter = build_filter(1024, 3, 0.01);
+    fn bloom_rs_reports_inserted_hits() {
+        let mut filter = BloomRs::new(1024, 3);
         visit_sequence_kmers(b"ACGT", 3, |kmer| {
-            filter.add(&super::kmer_key(kmer));
+            filter.add(hash_bytes_default(kmer));
         });
 
         let mut positives = 0_u64;
         let mut total = 0_u64;
         visit_sequence_kmers(b"ACGT", 3, |kmer| {
             total += 1;
-            if filter.contains(&super::kmer_key(kmer)) {
+            if filter.contains(hash_bytes_default(kmer)) {
                 positives += 1;
             }
         });

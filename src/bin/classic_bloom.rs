@@ -1,7 +1,5 @@
 use anyhow::{Context, Result};
-use bloom_filters::{
-    BloomFilter, ClassicBloomFilter, DefaultBuildHashKernels, DefaultBuildHasher,
-};
+use bloom_filters::{BloomFilter, ClassicBloomFilter, DefaultBuildHashKernels, DefaultBuildHasher};
 use clap::Parser;
 use probbenchmark::{
     BenchmarkReport, CommonArgs, QueryStats, configure_threads, count_fasta_kmers,
@@ -40,7 +38,8 @@ fn main() -> Result<()> {
 
 fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
     let threads = rayon::current_num_threads();
-    let needs_precount = args.hashes.is_none() || (args.bloom_bits.is_none() && args.bloom_bytes.is_none());
+    let needs_precount =
+        args.hashes.is_none() || (args.bloom_bits.is_none() && args.bloom_bytes.is_none());
 
     let index_usage_start = usage_snapshot()?;
     let index_wall_start = Instant::now();
@@ -74,7 +73,12 @@ fn run_benchmark(args: &CommonArgs) -> Result<BenchmarkReport> {
         debug_assert_eq!(inserted_kmers, indexed_kmers);
         indexed_kmers
     } else {
-        index_fasta(&args.index_fasta, args.kmer_size, args.batch_bases, &mut bloom)?
+        index_fasta(
+            &args.index_fasta,
+            args.kmer_size,
+            args.batch_bases,
+            &mut bloom,
+        )?
     };
 
     let index_usage_end = usage_snapshot()?;
@@ -153,7 +157,12 @@ fn index_fasta(
     Ok(total)
 }
 
-fn query_fasta(path: &Path, k: usize, batch_bases: usize, filter: &ClassicFilter) -> Result<QueryStats> {
+fn query_fasta(
+    path: &Path,
+    k: usize,
+    batch_bases: usize,
+    filter: &ClassicFilter,
+) -> Result<QueryStats> {
     let mut totals = QueryStats::default();
 
     scan_fasta_batches(path, batch_bases, |batch| {
