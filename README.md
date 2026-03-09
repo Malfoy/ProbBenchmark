@@ -2,7 +2,7 @@
 
 Rust command-line benchmarks for k-mer indexing and querying on FASTA files using multiple Bloom filter implementations.
 
-The project currently provides seven binaries:
+The project currently provides eight binaries:
 
 - `fastbloom`: benchmark based on [`fastbloom`](https://crates.io/crates/fastbloom)
 - `classic_bloom`: benchmark based on [`bloom-filters`](https://crates.io/crates/bloom-filters)
@@ -11,8 +11,9 @@ The project currently provides seven binaries:
 - `bloomfx`: benchmark based on [`bloomfx`](https://crates.io/crates/bloomfx)
 - `bloom_rs`: benchmark based on [`bloom_rs`](https://crates.io/crates/bloom_rs)
 - `generic_bloom`: benchmark based on [`generic-bloom`](https://crates.io/crates/generic-bloom)
+- `friendly-d-kmers`: generator for Friendly-D k-mers from an indexed FASTA file
 
-Each binary:
+Each benchmark binary:
 
 - reads one FASTA file to index
 - extracts all valid DNA k-mers (`A`, `C`, `G`, `T`)
@@ -50,6 +51,7 @@ cargo build -r --bin bloom_filter_rs
 cargo build -r --bin bloomfx
 cargo build -r --bin bloom_rs
 cargo build -r --bin generic_bloom
+cargo build -r --bin friendly-d-kmers
 ```
 
 Run tests:
@@ -70,11 +72,12 @@ target/release/bloom_filter_rs
 target/release/bloomfx
 target/release/bloom_rs
 target/release/generic_bloom
+target/release/friendly-d-kmers
 ```
 
-## Usage
+## Benchmark Usage
 
-All three binaries use the same CLI.
+The seven benchmark binaries use the same CLI.
 
 Required arguments:
 
@@ -238,6 +241,31 @@ Notes:
 ### `generic_bloom`
 
 - Uses `generic_bloom::SimpleBloomFilter`
+
+## Friendly-D Generator
+
+The repository also includes the Friendly-D k-mer generator previously kept in `FDP/`.
+
+Build only that binary:
+
+```bash
+cargo build -r --bin friendly-d-kmers
+```
+
+Run it:
+
+```bash
+./target/release/friendly-d-kmers <input.fasta> <k> <n> <d> [--output output.fa] [--seed value]
+```
+
+Arguments:
+
+- `input.fasta`: input FASTA file to index
+- `k`: k-mer size, from `1` to `31`
+- `n`: number of Friendly-D k-mers to generate
+- `d`: mutation distance from the start or end, from `1` to `k`
+- `--output output.fa`: optional output FASTA path; if omitted, FASTA is written to stdout
+- `--seed value`: optional random seed
 - Supports direct manual configuration of counter count and hash count
 - Uses a plain bitset-backed binary Bloom filter configuration
 
