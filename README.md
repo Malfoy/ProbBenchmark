@@ -2,7 +2,7 @@
 
 Rust command-line benchmarks for k-mer indexing and querying on FASTA files using multiple Bloom filter implementations.
 
-The project currently provides eight binaries:
+The project currently provides nine binaries:
 
 - `fastbloom`: benchmark based on [`fastbloom`](https://crates.io/crates/fastbloom)
 - `classic_bloom`: benchmark based on [`bloom-filters`](https://crates.io/crates/bloom-filters)
@@ -12,6 +12,7 @@ The project currently provides eight binaries:
 - `bloom_rs`: benchmark based on [`bloom_rs`](https://crates.io/crates/bloom_rs)
 - `generic_bloom`: benchmark based on [`generic-bloom`](https://crates.io/crates/generic-bloom)
 - `friendly-d-kmers`: generator for Friendly-D k-mers from an indexed FASTA file
+- `read_sim`: multithreaded simulator for reads generated from a reference FASTA
 
 Each benchmark binary:
 
@@ -52,6 +53,7 @@ cargo build -r --bin bloomfx
 cargo build -r --bin bloom_rs
 cargo build -r --bin generic_bloom
 cargo build -r --bin friendly-d-kmers
+cargo build -r --bin read_sim
 ```
 
 Run tests:
@@ -73,6 +75,7 @@ target/release/bloomfx
 target/release/bloom_rs
 target/release/generic_bloom
 target/release/friendly-d-kmers
+target/release/read_sim
 ```
 
 ## Benchmark Usage
@@ -268,6 +271,32 @@ Arguments:
 - `--seed value`: optional random seed
 - Supports direct manual configuration of counter count and hash count
 - Uses a plain bitset-backed binary Bloom filter configuration
+
+## Read Simulator
+
+Build only the simulator binary:
+
+```bash
+cargo build -r --bin read_sim
+```
+
+Run it:
+
+```bash
+./target/release/read_sim \
+  --reference-fasta ref.fa \
+  --error-rate 0.01 \
+  --length 150 \
+  --depth 30 \
+  --threads 16 \
+  --output reads.fa
+```
+
+Notes:
+
+- `depth` uses average coverage (`reads = ceil(reference_bases * depth / length)`).
+- only contiguous `A/C/G/T` regions are sampled.
+- reads are emitted in FASTA format with headers like `>read_1`.
 
 ## Crate Origins
 
